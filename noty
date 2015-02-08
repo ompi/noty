@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# Copyright 2015 ompi
+# Licensed under the GPL v2. See LICENSE for details.
+
+# noty is a wrapper for long running shell commands. When your command returns
+# it sends you a Pushbullet notification so you don't have to check every few 
+# minutes.
+
+NOTY_CFG=${HOME}/.noty
+PUSHBULLET_API_URL="https://api.pushbullet.com/v2/pushes"
+
+cmd_line=$@
+cmd_name=$1
+
+msg() {
+  echo "noty: $@" >&2
+}
+
+check_config() {
+  if [[ ! -f "${NOTY_CFG}" ]]; then
+    msg "Config file ${NOTY_CFG} was not found."
+    cat <<- EOF > ${NOTY_CFG}
+	# noty configuration file
+
+	# noty needs your Pushbullet user token to work.
+	# You can find yours at https://www.pushbullet.com/account.
+	pushbullet_user_token=""
+	EOF
+    chmod 600 ${NOTY_CFG}
+    msg "Default config file was created."
+    msg "Please edit ${NOTY_CFG} to get notifications."
+  fi
+
+  source ${NOTY_CFG}
+}
+
+check_params() {
+  if [[ -z "${cmd_line}" ]]; then
+    msg "usage: noty command [arguments ...]"
+    exit 1
+  fi
+}
+
+pushbullet_notification() {
+  response=$(curl -u ${pushbullet_user_token}: \
+      --header 'Content-Type: application/json' \
+      --data "{\"type\":\"note\",\"title\":\"$1\",\"body\":\"$2\"}" \
+      -X POST ${PUSHBULLET_API_URL} 2> /dev/null)
+
+  if [[ "$?" == 0 ]]; then
+    echo "${response}" | grep '{"active":true' > /dev/null
+    if [[ "$?" == 0 ]]; then
+      msg "Notification sent."
+      return 0
+    fi
+
+    echo "${response}" | grep '{"error":' > /dev/null
+    if [[ "$?" == 0 ]]; then
+      message=$(echo "${response}" | 
+          sed -n 's#.*"message":"\([^"]*\)".*#\1#p')
+      msg "Pushbullet problem: $message"
+    fi
+  else
+    msg "Network problem (curl returned $?)."
+  fi
+
+  return 1
+}
+
+get_pretty_time() {
+  secs=$(echo "scale=0; $1 / 1" | bc)
+  mins=0
+  hours=0
+
+  if [[ $(echo "$secs > 60" | bc) ]]; then
+    mins=$(echo "$secs / 60" | bc)
+    secs=$(echo "$secs % 60" | bc)
+  fi
+
+  if [[ $(echo "$mins > 60" | bc) ]]; then
+    hours=$(echo "$mins / 60" | bc)
+    mins=$(echo "$mins % 60" | bc)
+  fi
+
+  if [[ "$hours" != 0 ]]; then
+    printf "%.2d:%.2d mins" $hours $mins
+  elif [[ "$mins" != 0 ]]; then
+    printf "%.2d:%.2d secs" $mins $secs
+  else
+    printf "%d secs" $secs
+  fi
+}
+
+get_title() {
+  if [[ "${cmd_return_value}" == 0 ]]; then
+    result="succeeded"
+  else
+    result="failed"
+  fi
+  echo "Command ${cmd_name} ${result}."
+}
+
+get_message() {
+  echo "Returned ${cmd_return_value} in $(get_pretty_time ${exec_time})."
+}
+
+exec_command() {
+  start_time=$(date +%s.%N)
+  /bin/bash -c "${cmd_line}"
+  cmd_return_value=$?
+  end_time=$(date +%s.%N)
+  exec_time=$(echo "$end_time - $start_time" | bc)  
+}
+
+check_config
+check_params
+exec_command
+if [[ "${cmd_return_value}" != 127 ]]; then
+  pushbullet_notification "$(get_title)" "$(get_message)"
+fi
+exit ${cmd_return_value}
