@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Copyright 2015 ompi
 # Licensed under the GPL v2. See LICENSE for details.
@@ -15,7 +15,7 @@ msg() {
 }
 
 check_config() {
-  if [[ ! -f "${NOTY_CFG}" ]]; then
+  if [ ! -f "${NOTY_CFG}" ]; then
     msg "Config file ${NOTY_CFG} was not found."
     cat <<- EOF > ${NOTY_CFG}
 	# noty configuration file
@@ -29,13 +29,13 @@ check_config() {
     msg "Please edit ${NOTY_CFG} to get notifications."
   fi
 
-  source ${NOTY_CFG}
+  . ${NOTY_CFG}
 }
 
 check_params() {
   cmd_line=$@
 
-  if [[ -z "${cmd_line}" ]]; then
+  if [ -z "${cmd_line}" ]; then
     msg "usage: noty command [arguments ...]"
     exit 1
   fi
@@ -51,15 +51,15 @@ send_pushbullet_notification() {
       --data "${request}" \
       -X POST ${PUSHBULLET_API_URL} 2> /dev/null)
 
-  if [[ "$?" == 0 ]]; then
+  if [ "$?" -eq 0 ]; then
     echo "${response}" | grep '{"active":true' > /dev/null
-    if [[ "$?" == 0 ]]; then
+    if [ "$?" -eq 0 ]; then
       msg "Notification sent."
       return 0
     fi
 
     echo "${response}" | grep '{"error":' > /dev/null
-    if [[ "$?" == 0 ]]; then
+    if [ "$?" -eq 0 ]; then
       message=$(echo "${response}" | 
           sed -n 's#.*"message":"\([^"]*\)".*#\1#p')
       msg "Pushbullet problem: $message"
@@ -78,11 +78,11 @@ get_pretty_time() {
   mins=$(($secs / 60 % 60))
   secs=$(($secs % 60))
 
-  if [[ "$hours" != 0 ]]; then
+  if [ "$hours" -ne 0 ]; then
     printf "%.2d:%.2d mins" $hours $mins
-  elif [[ "$mins" != 0 ]]; then
+  elif [ "$mins" -ne 0 ]; then
     printf "%.2d:%.2d secs" $mins $secs
-  elif [[ "$secs" != 1 ]]; then
+  elif [ "$secs" -ne 1 ]; then
     printf "%d secs" $secs
   else
     printf "%d sec" $secs
@@ -90,7 +90,7 @@ get_pretty_time() {
 }
 
 get_title() {
-  if [[ "${cmd_return_value}" == 0 ]]; then
+  if [ "${cmd_return_value}" -eq 0 ]; then
     result="succeeded"
   else
     result="failed"
@@ -104,7 +104,7 @@ get_message() {
 
 exec_command() {
   start_time=$(date +%s)
-  /bin/bash -c "${cmd_line}"
+  ${SHELL} -c "${cmd_line}"
   cmd_return_value=$?
   end_time=$(date +%s)
   exec_time=$(($end_time - $start_time))
@@ -113,7 +113,7 @@ exec_command() {
 check_config
 check_params $@
 exec_command
-if [[ "${cmd_return_value}" != 127 ]]; then
+if [ "${cmd_return_value}" -ne 127 ]; then
   send_pushbullet_notification "$(get_title)" "$(get_message)"
 fi
 exit ${cmd_return_value}
