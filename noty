@@ -72,26 +72,20 @@ pushbullet_notification() {
 }
 
 get_pretty_time() {
-  secs=$(echo "scale=0; $1 / 1" | bc)
-  mins=0
-  hours=0
+  secs=$1
 
-  if [[ $(echo "$secs > 60" | bc) ]]; then
-    mins=$(echo "$secs / 60" | bc)
-    secs=$(echo "$secs % 60" | bc)
-  fi
-
-  if [[ $(echo "$mins > 60" | bc) ]]; then
-    hours=$(echo "$mins / 60" | bc)
-    mins=$(echo "$mins % 60" | bc)
-  fi
+  hours=$(($secs / 3600))
+  mins=$(($secs / 60 % 60))
+  secs=$(($secs % 60))
 
   if [[ "$hours" != 0 ]]; then
     printf "%.2d:%.2d mins" $hours $mins
   elif [[ "$mins" != 0 ]]; then
     printf "%.2d:%.2d secs" $mins $secs
-  else
+  elif [[ "$secs" != 1 ]]; then
     printf "%d secs" $secs
+  else
+    printf "%d sec" $secs
   fi
 }
 
@@ -109,11 +103,11 @@ get_message() {
 }
 
 exec_command() {
-  start_time=$(date +%s.%N)
+  start_time=$(date +%s)
   /bin/bash -c "${cmd_line}"
   cmd_return_value=$?
-  end_time=$(date +%s.%N)
-  exec_time=$(echo "$end_time - $start_time" | bc)  
+  end_time=$(date +%s)
+  exec_time=$(($end_time - $start_time))
 }
 
 check_config
