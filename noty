@@ -43,7 +43,7 @@ check_params() {
   cmd_name=$(basename $1)
 }
 
-pushbullet_notification() {
+send_pushbullet_notification() {
   request=$(printf '{"type":"note","title":"%s","body":"%s"}' "$1" "$2")
 
   response=$(curl -u ${pushbullet_user_token}: \
@@ -114,6 +114,6 @@ check_config
 check_params $@
 exec_command
 if [[ "${cmd_return_value}" != 127 ]]; then
-  pushbullet_notification "$(get_title)" "$(get_message)"
+  send_pushbullet_notification "$(get_title)" "$(get_message)"
 fi
 exit ${cmd_return_value}
