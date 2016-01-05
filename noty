@@ -44,9 +44,11 @@ check_params() {
 }
 
 pushbullet_notification() {
+  request=$(printf '{"type":"note","title":"%s","body":"%s"}' "$1" "$2")
+
   response=$(curl -u ${pushbullet_user_token}: \
       --header 'Content-Type: application/json' \
-      --data "{\"type\":\"note\",\"title\":\"$1\",\"body\":\"$2\"}" \
+      --data "${request}" \
       -X POST ${PUSHBULLET_API_URL} 2> /dev/null)
 
   if [[ "$?" == 0 ]]; then
